@@ -66,6 +66,20 @@ NimBLERemoteService* RemoteScales::clientGetService(const NimBLEUUID uuid) {
 
 bool RemoteScales::clientIsConnected() { return client != nullptr && client->isConnected(); };
 
+std::string RemoteScales::byteArrayToHexString(const uint8_t* byteArray, size_t length) {
+  std::string hexString;
+  hexString.reserve(length * 3); // Reserve space for the resulting string
+
+  char hex[4];
+  for (size_t i = 0; i < length; i++) {
+    snprintf(hex, sizeof(hex), "%02X ", byteArray[i]);
+    hexString.append(hex);
+  }
+
+  return hexString;
+}
+
+
 // ---------------------------------------------------------------------------------------
 // ------------------------   RemoteScales methods    ------------------------------
 // ---------------------------------------------------------------------------------------
@@ -117,6 +131,8 @@ void RemoteScalesScanner::cleanupDiscoveredScales() {
 bool RemoteScalesScanner::isScanRunning() {
   return isRunning;
 }
+
+
 
 // ---------------------------------------------------------------------------------------
 // ------------------------   RemoteScalesFactory methods    -----------------------------

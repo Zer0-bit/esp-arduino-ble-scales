@@ -50,6 +50,7 @@ protected:
   
   void setWeight(float newWeight);
   void log(std::string msgFormat, ...);
+  std::string byteArrayToHexString(const uint8_t* byteArray, size_t length);
 
 private:
   using WeightCallback = void (*)(float);

@@ -40,19 +40,6 @@ const NimBLEUUID serviceUUID("49535343-fe7d-4ae5-8fa9-9fafd205e455");
 const NimBLEUUID weightCharacteristicUUID("49535343-1e4d-4bd9-ba61-23c647249616");
 const NimBLEUUID commandCharacteristicUUID("49535343-8841-43f4-a8d4-ecbe34729bb3");
 
-std::string byteArrayToHexString(const uint8_t* byteArray, size_t length) {
-  std::string hexString;
-  hexString.reserve(length * 3); // Reserve space for the resulting string
-
-  char hex[4];
-  for (size_t i = 0; i < length; i++) {
-    snprintf(hex, sizeof(hex), "%02X ", byteArray[i]);
-    hexString.append(hex);
-  }
-
-  return hexString;
-}
-
 //-----------------------------------------------------------------------------------/
 //---------------------------        PUBLIC       -----------------------------------/
 //-----------------------------------------------------------------------------------/
@@ -159,12 +146,12 @@ bool AcaiaScales::decodeAndHandleNotification() {
     handleScaleStatusPayload(payload, payloadLength);
   }
   else if (messageType == AcaiaMessageType::INFO) {
-    RemoteScales::log("Got info message: %s\n", byteArrayToHexString(dataBuffer.data(), messageLength).c_str());
+    RemoteScales::log("Got info message: %s\n", RemoteScales::byteArrayToHexString(dataBuffer.data(), messageLength).c_str());
     // This normally means that something went wrong with the establishing a connection so we disconnect.
     markedForReconnection = true;
   }
   else {
-    RemoteScales::log("Unknown message type %02X: %s\n", messageType, byteArrayToHexString(dataBuffer.data(), messageLength).c_str());
+    RemoteScales::log("Unknown message type %02X: %s\n", messageType, RemoteScales::byteArrayToHexString(dataBuffer.data(), messageLength).c_str());
   }
 
   //Remove processed data packet from the buffer.
@@ -222,7 +209,7 @@ void AcaiaScales::handleScaleEventPayload(const uint8_t* payload, size_t length)
     // }
   }
   else {
-    RemoteScales::log("unknown event type %02x(%d): %s\n", eventType, eventType, byteArrayToHexString(payload, length).c_str());
+    RemoteScales::log("unknown event type %02x(%d): %s\n", eventType, eventType, RemoteScales::byteArrayToHexString(payload, length).c_str());
   }
 }
 
@@ -259,7 +246,7 @@ float AcaiaScales::decodeWeight(const uint8_t* weightPayload) {
     value /= 10000.0f;
     break;
   default:
-    RemoteScales::log("Invalid scaling %02X - %s \n", scaling, byteArrayToHexString(weightPayload, 6).c_str());
+    RemoteScales::log("Invalid scaling %02X - %s \n", scaling, RemoteScales::byteArrayToHexString(weightPayload, 6).c_str());
     return -1;
   }
 
