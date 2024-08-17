@@ -5,12 +5,6 @@
 Handle protocol according to the spec found at
 https://github.com/BooKooCode/OpenSource/blob/main/bookoo_mini_scale/protocols.md
 */
-
-enum class BookooHeader : uint8_t {
-  HEADER1 = 0xEF,
-  HEADER2 = 0xDD,
-};
-
 const size_t RECEIVE_PROTOCOL_LENGTH = 20;
 
 const NimBLEUUID serviceUUID("0FFE");
