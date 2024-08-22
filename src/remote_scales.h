@@ -47,6 +47,7 @@ protected:
   void clientCleanup();
   bool clientIsConnected();
   NimBLERemoteService* clientGetService(const NimBLEUUID uuid);
+  std::vector<NimBLERemoteService *> clientGetServices();
   
   void setWeight(float newWeight);
   void log(std::string msgFormat, ...);

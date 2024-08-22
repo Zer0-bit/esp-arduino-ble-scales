@@ -9,8 +9,11 @@ This allows for easy extention of the library for more bluetooth enabled scales.
 
 ### Currently implemented scales
 
-* Acaia Lunar (Tested)
-* Acaia Pearl (Untested but should be supported)
+* [Acaia Lunar](https://acaia.co/collections/coffee-scales/products/lunar_2021) - [Tested]
+* [Acaia Pearl](https://acaia.co/collections/coffee-scales/products/pearl) - [Tested]
+* [Bookoo Themis](https://bookoocoffee.com/shop/bookoo-mini-scale/?coupon=gaggiuino) - [Tested]
+
+*__There is a big possibility other acaia models work out of the box as well but thye have not ben tested!__*
 
 Want a specific model? Implement it 🚀 Read on to find out how... 
 
