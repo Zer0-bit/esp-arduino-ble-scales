@@ -268,250 +268,164 @@ float AcaiaScales::decodeTime(const uint8_t* timePayload) {
 bool AcaiaScales::performConnectionHandshake() {
   RemoteScales::log("Performing handshake\n");
 
-  std::vector<NimBLERemoteService*> services = RemoteScales::clientGetServices();
-  if (services.empty()) {
+  if (RemoteScales::clientGetService(oldServiceUUID)) {
+    service = RemoteScales::clientGetService(oldServiceUUID);
+  }
+  else {
+    service = RemoteScales::clientGetService(serviceUUID);
+  }
+
+  if (service == nullptr) {
     clientCleanup();
     return false;
   }
-  for (uint8_t i = 0; i < services.size(); i++) {
-    if (RemoteScales::clientGetService(RemoteScales::clientGetServices().at(i)->getUUID()) != nullptr) {
-      service = RemoteScales::clientGetServices().at(i);
-      RemoteScales::log("Got device characteristics at pos %d with characteristic %08X and UUID %08X.\n", i, services.at(i), services.at(i)->getUUID());
+  RemoteScales::log("Got Service\n");
 
-      // if (service->getCharacteristics()->at(i)->canRead()) {
-      //   weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
-      //   commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
-      // }
-    }
+  if (service->getCharacteristic(oldWeightCharacteristicUUID)) {
+    weightCharacteristic = service->getCharacteristic(oldWeightCharacteristicUUID);
+    commandCharacteristic = service->getCharacteristic(oldCommandCharacteristicUUID);
+  }
+  else {
+    weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
+    commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
+  }
 
-    std::vector<NimBLERemoteCharacteristic*> characteristics = *service->getCharacteristics(true);
+  if (weightCharacteristic == nullptr || commandCharacteristic == nullptr) {
+    clientCleanup();
+    return false;
+  }
+  RemoteScales::log("Got weightCharacteristic and commandCharacteristic\n");
 
-    if (characteristics.empty()) {
-      RemoteScales::log("Characteristic %d was empty, initialising", i);
-      clientCleanup();
-      // return false;
-    }
-    else {
-      for (int j = 0; j < characteristics.size(); j++) {
+  // Subscribe
+  NimBLERemoteDescriptor* notifyDescriptor = weightCharacteristic->getDescriptor(NimBLEUUID((uint16_t)0x2902));
+  RemoteScales::log("Got notifyDescriptor\n");
+  if (notifyDescriptor != nullptr) {
+    uint8_t value[2] = { 0x01, 0x00 };
+    notifyDescriptor->writeValue(value, 2, true);
+  }
+  else {
+    clientCleanup();
+    return false;
+  }
 
-        RemoteScales::log("Characteristic vector size %d", characteristics.size());
+  // Identify
+  sendId();
+  RemoteScales::log("Send ID\n");
+  sendNotificationRequest();
+  RemoteScales::log("Sent notification request\n");
+  lastHeartbeat = millis();
+  return true;
+}
 
-        NimBLERemoteCharacteristic* characteristic = *characteristics.data();
+void AcaiaScales::sendId() {
+  const uint8_t payload[] = { 0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d };
+  sendMessage(AcaiaMessageType::IDENTIFY, payload, 15, false);
+}
 
-        if (characteristic->canBroadcast()) {
-          RemoteScales::log("[%d] Can broadcast", j);
-        }
-        else {
-          RemoteScales::log("Can not broadcast");
-        }
+void AcaiaScales::sendNotificationRequest() {
+  uint8_t payload[] = { 0, 1, 1, 2, 2, 5, 3, 4 };
+  sendEvent(payload, 8);
+}
 
-        if (characteristic->canIndicate()) {
-          RemoteScales::log("[%d] Can indicate", j);
-        }
-        else {
-          RemoteScales::log("Can not indicate");
-        }
+void AcaiaScales::sendEvent(const uint8_t* payload, size_t length) {
+  auto bytes = std::make_unique<uint8_t[]>(length + 1);
+  bytes[0] = static_cast<uint8_t>(length + 1);
 
-        if (characteristic->canNotify()) {
-          RemoteScales::log("[%d] Can notify", j);
-        }
-        else {
-          RemoteScales::log("Can not notify");
-        }
+  for (size_t i = 0; i < length; ++i) {
+    bytes[i + 1] = payload[i] & 0xFF;
+  }
 
-        if (characteristic->canRead()) {
-          RemoteScales::log("[%d] Can read", j);
-        }
-        else {
-          RemoteScales::log("Can not read");
-        }
+  sendMessage(AcaiaMessageType::EVENT, bytes.get(), length + 1);
+}
 
-        if (characteristic->canWrite()) {
-          RemoteScales::log("[%d] Can write", j);
-        }
-        else {
-          RemoteScales::log("Can not write");
-        }
+void AcaiaScales::sendHeartbeat() {
+  if (!isConnected()) {
+    return;
+  }
 
-        if (characteristic->canWriteNoResponse()) {
-          RemoteScales::log("[%d] Can write no response", j);
-        }
-        else {
-          RemoteScales::log("Can not write no response");
-        }
+  uint32_t now = millis();
+  if (now - lastHeartbeat < 2000) {
+    return;
+  }
 
-        RemoteScales::log("Got device characteristics at pos %d with characteristic %08X and UUID %08X.\n", j, characteristics.at(j), characteristics.at(j)->getUUID());
+  uint8_t payload1[] = { 0x02,0x00 };
+  sendMessage(AcaiaMessageType::SYSTEM, payload1, 2);
+  sendNotificationRequest();
+  uint8_t payload2[] = { 0x00 };
+  sendMessage(AcaiaMessageType::HANDSHAKE, payload2, 1);
+  lastHeartbeat = now;
+}
 
-        if (characteristic->canRead()) {
-          characteristic->readValue();
+void AcaiaScales::subscribeToNotifications() {
+  RemoteScales::log("subscribeToNotifications\n");
 
-          if (characteristic->getValue().length() > 0) {
-            RemoteScales::log("Characteristic value %0X", characteristic->getValue());
-          }
-        }
-      }
-    }
+  auto callback = [this](NimBLERemoteCharacteristic* characteristic, uint8_t* data, size_t length, bool isNotify) {
+    notifyCallback(characteristic, data, length, isNotify);
+    };
 
+  if (weightCharacteristic->canNotify()) {
+    RemoteScales::log("Registering callback for weight characteristic\n");
+    weightCharacteristic->subscribe(true, callback);
+  }
 
-    if (RemoteScales::clientGetService(oldServiceUUID)) {
-      service = RemoteScales::clientGetService(oldServiceUUID);
-    }
-    else {
-      service = RemoteScales::clientGetService(serviceUUID);
-    }
-
-    if (service == nullptr) {
-      clientCleanup();
-      return false;
-    }
-    RemoteScales::log("Got Service\n");
-
-    if (service->getCharacteristic(oldWeightCharacteristicUUID)) {
-      weightCharacteristic = service->getCharacteristic(oldWeightCharacteristicUUID);
-      commandCharacteristic = service->getCharacteristic(oldCommandCharacteristicUUID);
-    }
-    else {
-      weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
-      commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
-    }
-
-    if (weightCharacteristic == nullptr || commandCharacteristic == nullptr) {
-      clientCleanup();
-      return false;
-    }
-    RemoteScales::log("Got weightCharacteristic and commandCharacteristic\n");
-
-    // Subscribe
-    NimBLERemoteDescriptor* notifyDescriptor = weightCharacteristic->getDescriptor(NimBLEUUID((uint16_t)0x2902));
-    RemoteScales::log("Got notifyDescriptor\n");
-    if (notifyDescriptor != nullptr) {
-      uint8_t value[2] = { 0x01, 0x00 };
-      notifyDescriptor->writeValue(value, 2, true);
-    }
-    else {
-      clientCleanup();
-      return false;
-    }
-
-    // Identify
-    sendId();
-    RemoteScales::log("Send ID\n");
-    sendNotificationRequest();
-    RemoteScales::log("Sent notification request\n");
-    lastHeartbeat = millis();
-    return true;
+  if (commandCharacteristic->canNotify()) {
+    RemoteScales::log("Registering callback for command characteristic\n");
+    commandCharacteristic->subscribe(true, callback);
   }
 }
 
-  void AcaiaScales::sendId() {
-    const uint8_t payload[] = { 0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d,0x2d };
-    sendMessage(AcaiaMessageType::IDENTIFY, payload, 15, false);
-  }
+void AcaiaScales::sendMessage(AcaiaMessageType msgType, const uint8_t* payload, size_t length, bool waitResponse) {
+  size_t messageSize = HEADER_LENGTH + length + CHECKSUM_LENGTH;
+  auto bytes = std::make_unique<uint8_t[]>(messageSize);
 
-  void AcaiaScales::sendNotificationRequest() {
-    uint8_t payload[] = { 0, 1, 1, 2, 2, 5, 3, 4 };
-    sendEvent(payload, 8);
-  }
+  // Header
+  bytes[0] = static_cast<uint8_t>(AcaiaHeader::HEADER1);
+  bytes[1] = static_cast<uint8_t>(AcaiaHeader::HEADER2);
+  bytes[2] = static_cast<uint8_t>(msgType);
 
-  void AcaiaScales::sendEvent(const uint8_t * payload, size_t length) {
-    auto bytes = std::make_unique<uint8_t[]>(length + 1);
-    bytes[0] = static_cast<uint8_t>(length + 1);
+  // Payload
+  memcpy(bytes.get() + HEADER_LENGTH, payload, length);
 
-    for (size_t i = 0; i < length; ++i) {
-      bytes[i + 1] = payload[i] & 0xFF;
+  // Checksum
+  auto checksums = calculateChecksum(payload, length);
+  bytes[length + 3] = (checksums.first & 0xFF);
+  bytes[length + 4] = (checksums.second & 0xFF);
+
+  commandCharacteristic->writeValue(bytes.get(), messageSize, waitResponse);
+};
+
+// Calculate the checksum for the payload of the message
+static std::pair<uint8_t, uint8_t> calculateChecksum(const uint8_t* payload, size_t length) {
+  uint8_t cksum1 = 0;
+  uint8_t cksum2 = 0;
+
+  for (size_t i = 0; i < length; i++) {
+    if (i % 2 == 0) {
+      cksum1 += payload[i];
     }
-
-    sendMessage(AcaiaMessageType::EVENT, bytes.get(), length + 1);
-  }
-
-  void AcaiaScales::sendHeartbeat() {
-    if (!isConnected()) {
-      return;
-    }
-
-    uint32_t now = millis();
-    if (now - lastHeartbeat < 2000) {
-      return;
-    }
-
-    uint8_t payload1[] = { 0x02,0x00 };
-    sendMessage(AcaiaMessageType::SYSTEM, payload1, 2);
-    sendNotificationRequest();
-    uint8_t payload2[] = { 0x00 };
-    sendMessage(AcaiaMessageType::HANDSHAKE, payload2, 1);
-    lastHeartbeat = now;
-  }
-
-  void AcaiaScales::subscribeToNotifications() {
-    RemoteScales::log("subscribeToNotifications\n");
-
-    auto callback = [this](NimBLERemoteCharacteristic* characteristic, uint8_t* data, size_t length, bool isNotify) {
-      notifyCallback(characteristic, data, length, isNotify);
-      };
-
-    if (weightCharacteristic->canNotify()) {
-      RemoteScales::log("Registering callback for weight characteristic\n");
-      weightCharacteristic->subscribe(true, callback);
-    }
-
-    if (commandCharacteristic->canNotify()) {
-      RemoteScales::log("Registering callback for command characteristic\n");
-      commandCharacteristic->subscribe(true, callback);
+    else {
+      cksum2 += payload[i];
     }
   }
 
-  void AcaiaScales::sendMessage(AcaiaMessageType msgType, const uint8_t * payload, size_t length, bool waitResponse) {
-    size_t messageSize = HEADER_LENGTH + length + CHECKSUM_LENGTH;
-    auto bytes = std::make_unique<uint8_t[]>(messageSize);
+  return { cksum1 & 0xFF, cksum2 & 0xFF };
+}
 
-    // Header
-    bytes[0] = static_cast<uint8_t>(AcaiaHeader::HEADER1);
-    bytes[1] = static_cast<uint8_t>(AcaiaHeader::HEADER2);
-    bytes[2] = static_cast<uint8_t>(msgType);
+// Discard junk data so that the first element of the buffer is the start of a message
+static void cleanupJunkData(std::vector<uint8_t>& dataBuffer) {
+  int messageStart = 0;
 
-    // Payload
-    memcpy(bytes.get() + HEADER_LENGTH, payload, length);
-
-    // Checksum
-    auto checksums = calculateChecksum(payload, length);
-    bytes[length + 3] = (checksums.first & 0xFF);
-    bytes[length + 4] = (checksums.second & 0xFF);
-
-    commandCharacteristic->writeValue(bytes.get(), messageSize, waitResponse);
-  };
-
-  // Calculate the checksum for the payload of the message
-  static std::pair<uint8_t, uint8_t> calculateChecksum(const uint8_t * payload, size_t length) {
-    uint8_t cksum1 = 0;
-    uint8_t cksum2 = 0;
-
-    for (size_t i = 0; i < length; i++) {
-      if (i % 2 == 0) {
-        cksum1 += payload[i];
-      }
-      else {
-        cksum2 += payload[i];
-      }
-    }
-
-    return { cksum1 & 0xFF, cksum2 & 0xFF };
+  // Find the start of the message
+  while (messageStart < dataBuffer.size() - 1
+    && dataBuffer[messageStart] != (uint8_t)AcaiaHeader::HEADER1
+    && dataBuffer[messageStart + 1] != (uint8_t)(AcaiaHeader::HEADER2)
+    ) {
+    messageStart++;
   }
 
-  // Discard junk data so that the first element of the buffer is the start of a message
-  static void cleanupJunkData(std::vector<uint8_t>&dataBuffer) {
-    int messageStart = 0;
-
-    // Find the start of the message
-    while (messageStart < dataBuffer.size() - 1
-      && dataBuffer[messageStart] != (uint8_t)AcaiaHeader::HEADER1
-      && dataBuffer[messageStart + 1] != (uint8_t)(AcaiaHeader::HEADER2)
-      ) {
-      messageStart++;
-    }
-
-    // Clear everything before the start of the message
-    dataBuffer.erase(dataBuffer.begin(), dataBuffer.begin() + messageStart);
-    if (messageStart == dataBuffer.size() - 1 && dataBuffer[messageStart] != (uint8_t)AcaiaHeader::HEADER1) {
-      dataBuffer.clear();
-    }
+  // Clear everything before the start of the message
+  dataBuffer.erase(dataBuffer.begin(), dataBuffer.begin() + messageStart);
+  if (messageStart == dataBuffer.size() - 1 && dataBuffer[messageStart] != (uint8_t)AcaiaHeader::HEADER1) {
+    dataBuffer.clear();
   }
+}
