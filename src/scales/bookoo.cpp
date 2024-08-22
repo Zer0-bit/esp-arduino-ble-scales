@@ -141,37 +141,124 @@ bool BookooScales::decodeAndHandleNotification() {
 bool BookooScales::performConnectionHandshake() {
   RemoteScales::log("Performing handshake\n");
 
-  service = RemoteScales::clientGetService(serviceUUID);
-  if (service == nullptr) {
+  std::vector<NimBLERemoteService*> services = RemoteScales::clientGetServices();
+  if (services.empty()) {
     clientCleanup();
     return false;
   }
-  RemoteScales::log("Got Service\n");
+  for (uint8_t i = 0; i < services.size(); i++) {
+    if (RemoteScales::clientGetService(RemoteScales::clientGetServices().at(i)->getUUID()) != nullptr) {
+      service = RemoteScales::clientGetServices().at(i);
+      RemoteScales::log("Got device characteristics at pos %d with characteristic %08X and UUID %08X.\n", i, services.at(i), services.at(i)->getUUID());
 
-  weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
-  commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
-  if (weightCharacteristic == nullptr || commandCharacteristic == nullptr) {
-    clientCleanup();
-    return false;
-  }
-  RemoteScales::log("Got weightCharacteristic and commandCharacteristic\n");
+      // if (service->getCharacteristics()->at(i)->canRead()) {
+      //   weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
+      //   commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
+      // }
+    }
 
-  // Subscribe
-  NimBLERemoteDescriptor* notifyDescriptor = weightCharacteristic->getDescriptor(NimBLEUUID((uint16_t)0x2902));
-  RemoteScales::log("Got notifyDescriptor\n");
-  if (notifyDescriptor != nullptr) {
-    uint8_t value[2] = { 0x00, 0x01 };
-    notifyDescriptor->writeValue(value, 2, true);
-  }
-  else {
-    clientCleanup();
-    return false;
-  }
+    std::vector<NimBLERemoteCharacteristic*> characteristics = *service->getCharacteristics(true);
 
-  sendNotificationRequest();
-  RemoteScales::log("Sent notification request\n");
-  lastHeartbeat = millis();
-  return true;
+    if (characteristics.empty()) {
+      RemoteScales::log("Characteristic %d was empty, initialising", i);
+      clientCleanup();
+      // return false;
+    }
+    else {
+      for (int j = 0; j < characteristics.size(); j++) {
+
+        RemoteScales::log("Characteristic vector size %d", characteristics.size());
+
+        NimBLERemoteCharacteristic* characteristic = *characteristics.data();
+
+        if (characteristic->canBroadcast()) {
+          RemoteScales::log("[%d] Can broadcast", j);
+        }
+        else {
+          RemoteScales::log("Can not broadcast");
+        }
+
+        if (characteristic->canIndicate()) {
+          RemoteScales::log("[%d] Can indicate", j);
+        }
+        else {
+          RemoteScales::log("Can not indicate");
+        }
+
+        if (characteristic->canNotify()) {
+          RemoteScales::log("[%d] Can notify", j);
+        }
+        else {
+          RemoteScales::log("Can not notify");
+        }
+
+        if (characteristic->canRead()) {
+          RemoteScales::log("[%d] Can read", j);
+        }
+        else {
+          RemoteScales::log("Can not read");
+        }
+
+        if (characteristic->canWrite()) {
+          RemoteScales::log("[%d] Can write", j);
+        }
+        else {
+          RemoteScales::log("Can not write");
+        }
+
+        if (characteristic->canWriteNoResponse()) {
+          RemoteScales::log("[%d] Can write no response", j);
+        }
+        else {
+          RemoteScales::log("Can not write no response");
+        }
+
+        RemoteScales::log("Got device characteristics at pos %d with characteristic %08X and UUID %08X.\n", j, characteristics.at(j), characteristics.at(j)->getUUID());
+
+        if (characteristic->canRead()) {
+          characteristic->readValue();
+
+          if (characteristic->getValue().length() > 0) {
+            RemoteScales::log("Characteristic value %0X", characteristic->getValue());
+          }
+        }
+      }
+    }
+
+    service = RemoteScales::clientGetService(serviceUUID);
+    if (service != nullptr) {
+      RemoteScales::log("Got Service\n");
+    }
+    else {
+      clientCleanup();
+      return false;
+    }
+
+    weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
+    commandCharacteristic = service->getCharacteristic(commandCharacteristicUUID);
+    if (weightCharacteristic == nullptr || commandCharacteristic == nullptr) {
+      clientCleanup();
+      return false;
+    }
+    RemoteScales::log("Got weightCharacteristic and commandCharacteristic\n");
+
+    // Subscribe
+    NimBLERemoteDescriptor* notifyDescriptor = weightCharacteristic->getDescriptor(NimBLEUUID((uint16_t)0x2902));
+    RemoteScales::log("Got notifyDescriptor\n");
+    if (notifyDescriptor != nullptr) {
+      uint8_t value[2] = { 0x00, 0x01 };
+      notifyDescriptor->writeValue(value, 2, true);
+    }
+    else {
+      clientCleanup();
+      return false;
+    }
+
+    sendNotificationRequest();
+    RemoteScales::log("Sent notification request\n");
+    lastHeartbeat = millis();
+    return true;
+  }
 }
 
 void BookooScales::sendNotificationRequest() {

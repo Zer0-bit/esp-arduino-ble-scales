@@ -64,6 +64,15 @@ NimBLERemoteService* RemoteScales::clientGetService(const NimBLEUUID uuid) {
   return client->getService(uuid);
 }
 
+std::vector<NimBLERemoteService *> RemoteScales::clientGetServices() {
+  if (!clientIsConnected()) {
+    log("Cannot get service, client is not connected\n");
+    return {};
+  }
+
+  return *client->getServices(true);
+}
+
 bool RemoteScales::clientIsConnected() { return client != nullptr && client->isConnected(); };
 
 std::string RemoteScales::byteArrayToHexString(const uint8_t* byteArray, size_t length) {
