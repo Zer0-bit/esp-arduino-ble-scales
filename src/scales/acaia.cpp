@@ -41,8 +41,7 @@ const NimBLEUUID weightCharacteristicUUID("49535343-1e4d-4bd9-ba61-23c647249616"
 const NimBLEUUID commandCharacteristicUUID("49535343-8841-43f4-a8d4-ecbe34729bb3");
 
 const NimBLEUUID oldServiceUUID("00001820-0000-1000-8000-00805f9b34fb");
-const NimBLEUUID oldWeightCharacteristicUUID("00002a80-0000-1000-8000-00805f9b34fb");
-const NimBLEUUID oldCommandCharacteristicUUID("00002a80-0000-1000-8000-00805f9b34fb");
+const NimBLEUUID oldCharacteristicUUID("00002a80-0000-1000-8000-00805f9b34fb");
 
 //-----------------------------------------------------------------------------------/
 //---------------------------        PUBLIC       -----------------------------------/
@@ -271,19 +270,18 @@ bool AcaiaScales::performConnectionHandshake() {
   if (RemoteScales::clientGetService(oldServiceUUID)) {
     service = RemoteScales::clientGetService(oldServiceUUID);
   }
-  else {
+  else if (RemoteScales::clientGetService(serviceUUID)) {
     service = RemoteScales::clientGetService(serviceUUID);
   }
-
-  if (service == nullptr) {
+  else {
     clientCleanup();
     return false;
   }
   RemoteScales::log("Got Service\n");
 
-  if (service->getCharacteristic(oldWeightCharacteristicUUID)) {
-    weightCharacteristic = service->getCharacteristic(oldWeightCharacteristicUUID);
-    commandCharacteristic = service->getCharacteristic(oldCommandCharacteristicUUID);
+  if (service->getCharacteristic(oldCharacteristicUUID)) {
+    weightCharacteristic = service->getCharacteristic(oldCharacteristicUUID);
+    commandCharacteristic = service->getCharacteristic(oldCharacteristicUUID);
   }
   else {
     weightCharacteristic = service->getCharacteristic(weightCharacteristicUUID);
