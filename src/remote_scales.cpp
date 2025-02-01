@@ -91,13 +91,13 @@ void RemoteScalesScanner::initializeAsyncScan() {
   // We set the second parameter to true to prevent the library from storing BLEAdvertisedDevice objects
   // for devices we're not interested in. This is important because the library will otherwise run out of
   // memory after a while.
-  NimBLEDevice::getScan()->setAdvertisedDeviceCallbacks(this, true);
+  NimBLEDevice::getScan()->setScanCallbacks(this, true);
   NimBLEDevice::getScan()->setInterval(500);
   NimBLEDevice::getScan()->setWindow(100);
   NimBLEDevice::getScan()->setMaxResults(0);
   NimBLEDevice::getScan()->setDuplicateFilter(false);
   NimBLEDevice::getScan()->setActiveScan(false);
-  NimBLEDevice::getScan()->start(0, nullptr, false); // Set to 0 for continuous
+  NimBLEDevice::getScan()->start(0); // Set to 0 for continuous
   isRunning = true;
 }
 
@@ -114,8 +114,8 @@ void RemoteScalesScanner::restartAsyncScan() {
   initializeAsyncScan();
 }
 
-void RemoteScalesScanner::onResult(NimBLEAdvertisedDevice* advertisedDevice) {
-  std::string addrStr(reinterpret_cast<const char*>(advertisedDevice->getAddress().getNative()), 6);
+void RemoteScalesScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice) {
+  std::string addrStr(reinterpret_cast<const char*>(advertisedDevice->getAddress().getBase()), 6);
   if (alreadySeenAddresses.exists(addrStr)) {
     return;
   }
