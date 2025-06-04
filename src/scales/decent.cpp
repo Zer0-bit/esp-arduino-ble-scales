@@ -114,8 +114,13 @@ bool DecentScales::subscribeToNotifications() {
 
 void DecentScales::readCallback(NimBLERemoteCharacteristic* pCharacteristic,
   uint8_t* pData, size_t length, bool isNotify) {
-  if ((length == 7 || length == 10) && pData[0] == 0x03 && (pData[1] == 0xCA || pData[1] == 0xCE)) {
-    handleWeightNotification(pData, length);
+  if ((length == 7 || length == 10) && pData[0] == 0x03) {
+    if(pData[1] == 0xCA || pData[1] == 0xCE){
+      handleWeightNotification(pData, length);
+    }
+    else if(pData[1] == 0xAA){
+      handleButtonPress(pData, length);
+    }
   }
   else {
     RemoteScales::log("Wrong packet length\n");
@@ -143,6 +148,20 @@ void DecentScales::handleWeightNotification(uint8_t* pData, size_t length) {
 
   RemoteScales::setWeight(weight100 / 10.f);
   RemoteScales::log("Weight received\n");
+}
+
+void DecentScales::handleButtonPress(uint8_t* pData, size_t length) {
+  uint8_t button = pData[2];
+
+  if(button == 0x01){
+    RemoteScales::log("Tare button pressed\n");
+    RemoteScales::tare();
+  }else if(button == 0x02){
+    RemoteScales::log("Timer button pressed\n");
+    // ignore for now 
+  }else{
+    RemoteScales::log("Button pressed: %d\n", button);
+  }
 }
 
 bool DecentScales::verifyConnected() {
