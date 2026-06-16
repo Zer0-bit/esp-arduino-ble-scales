@@ -19,6 +19,11 @@ bool TimemoreNewScales::connect() {
 
     RemoteScales::log("Connecting to %s [%s]\n", RemoteScales::getDeviceName().c_str(), RemoteScales::getDeviceAddress().c_str());
 
+    // [Fix] Dynamically enable secure bonding parameters to fulfill Timemore Dot requirements
+    NimBLEDevice::setSecurityAuth(true, false, true);
+    // This perfectly simulates the 'createBond()' behavior found in the official Android app
+    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+
     // First connection attempt
     bool result = RemoteScales::clientConnect();
     
@@ -47,7 +52,7 @@ bool TimemoreNewScales::connect() {
         return false;
     }
 
-    subscribeToNotifications();
+    //subscribeToNotifications();
     RemoteScales::setWeight(0.f);
     return true;
 }
@@ -63,8 +68,12 @@ bool TimemoreNewScales::isConnected() {
 void TimemoreNewScales::update() {
     // Status maintenance logic: If disconnection is detected in this cycle, trigger reconnection
     if (!isConnected()) {
-        // Use a static variable to record the time of the last reconnection attempt
-        static uint32_t lastReconnectAttempt = 0;
+        
+        // [Fix] State machine: Mark for reconnection and reset timer to trigger immediately
+        if (!markedForReconnection) {
+            markedForReconnection = true;
+            lastReconnectAttempt = millis() - 5000; 
+        }
         
         // Smart throttling: After disconnection, attempt to reconnect only once every 5 seconds, rather than busy-waiting every millisecond
         if (millis() - lastReconnectAttempt > 5000) {
@@ -72,6 +81,7 @@ void TimemoreNewScales::update() {
             
             if (connect()) {
                 RemoteScales::log("Reconnected to Timemore Dot successfully.\n");
+                markedForReconnection = false; // Clear the disconnection flag upon success
             } else {
                 RemoteScales::log("Reconnect failed. Will retry in 5 seconds.\n");
             }
@@ -79,6 +89,9 @@ void TimemoreNewScales::update() {
             // Update the time of the last attempt
             lastReconnectAttempt = millis();
         }
+     } else {
+        // Ensure the flag is cleared when normally connected
+        markedForReconnection = false;  
     }
 }
 
@@ -137,6 +150,9 @@ bool TimemoreNewScales::performConnectionHandshake() {
         RemoteScales::log("Failed to find notification descriptor.\n");
         return false;
     }
+    // [Fix] Subscribe to notifications BEFORE sending initialization queries
+    // This hooks up the listener to properly ingest responsive handshake data frames
+    subscribeToNotifications();
 
     // Send the 6 initialization query commands used by the official App after successful connection to wake up the data stream
     uint8_t initQueries[] = { 19, 8, 5, 2, 6, 12 };

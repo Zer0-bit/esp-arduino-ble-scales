@@ -29,6 +29,8 @@ private:
     NimBLERemoteCharacteristic* commandCharacteristic = nullptr;
 
     std::vector<uint8_t> dataBuffer;
+    // [Fix] Class member timer isolates instance lifecycles and prevents memory pollution
+    uint32_t lastReconnectAttempt = 0; 
     bool markedForReconnection = false;
 
     bool performConnectionHandshake();
