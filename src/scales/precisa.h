@@ -50,21 +50,24 @@ public:
 
 private:
   static bool handles(const DiscoveredDevice& device) {
-    static constexpr const char* kNamePrefixes[] = { "CFS-9002", "LSJ-001" };
-    // static constexpr const char* kHexSignatures[] = { "a6bc", "042" };
+    static constexpr const char* namePrefixes[] = { "CFS-9002", "LSJ-001" };
 
     const std::string& name = device.getName();
     if (!name.empty()) {
-      for (const char* p : kNamePrefixes) {
+      for (const char* p : namePrefixes) {
         if (name.rfind(p, 0) == 0) return true;
       }
     }
-    // const std::string& mfg = device.getManufacturerData();
-    // if (mfg.empty()) return false;
-    // std::string hex = NimBLEUtils::dataToHexString((uint8_t*)(mfg.c_str()), mfg.length());
-    // for (const char* p : kHexSignatures) {
-    //   if (hex.find(p) != std::string::npos) return true;
-    // }
+
+    const std::string& mfr = device.getManufacturerData();
+
+    if (mfr.length() >= 6 &&
+        (uint8_t)mfr[0] == 0xFF && (uint8_t)mfr[1] == 0xFF) {
+      std::string macStr = NimBLEAddress(device.getAddress()).toString();
+      uint8_t firstMacByte = (uint8_t)strtoul(macStr.substr(0, 2).c_str(), nullptr, 16);
+      if ((uint8_t)mfr.back() == firstMacByte) return true;
+    }
+
     return false;
   }
 };
