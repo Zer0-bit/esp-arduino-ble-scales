@@ -23,6 +23,7 @@ This allows for easy extention of the library for more bluetooth enabled scales.
 * [CFS-9002/Eureka Precisa](https://www.aliexpress.com/item/1005008898452251.html) - [Tested]
 * [Felicita Arc](http://www.felicitacoffee.com/PRODUCT_1/10.html) - [Tested]
 * [INSMART 863A](https://www.amazon.com/INSMART-Coffee-Scale-with-Timer/dp/B0FRMQFNJ4) - [Tested]
+* [IKAPE Smart Coffee Scale (APP_V2 Pro)](https://ikapestore.com/products/ikape-smart-electronic-coffee-scale-with-bluetooth-app) - [Tested]
 * [Solobarista](https://item.taobao.com/item.htm?id=848706090408&skuId=5805800327323&spm=a21xtw.29178619.0.0) - [Tested]
 * [Timemore Black Mirror DUO](https://www.timemore.com/collections/coffee-scale/products/timemore-coffee-scale-black-mirror-duo) - [Tested]
 * [Timemore Black Mirror Dot](https://e.tb.cn/h.RaauU1uixK6rBHE?tk=NKEx5psOlHb) - [Tested]
