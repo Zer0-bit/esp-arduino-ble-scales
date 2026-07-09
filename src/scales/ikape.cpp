@@ -48,7 +48,10 @@ bool IkapeScales::tare() {
   // scale emits on a physical tare press; verified live over BLE.
   // Format A7 00 01 [type=02] [sub=02] [param=01] [CK] 7A, CK=sum(bytes[2..5])&0xFF.
   static const uint8_t tareCmd[] = { 0xA7, 0x00, 0x01, 0x02, 0x02, 0x01, 0x06, 0x7A };
-  cmdCharacteristic->writeValue(const_cast<uint8_t*>(tareCmd), sizeof(tareCmd), false);
+  // write-WITH-response: the scale ACKs on FFF2 (verified: 12/12 acked on the
+  // bench), which both confirms delivery and serializes the write against the
+  // weight-notify stream so a shot-start tare is not dropped under load.
+  cmdCharacteristic->writeValue(const_cast<uint8_t*>(tareCmd), sizeof(tareCmd), true);
   return true;
 }
 
