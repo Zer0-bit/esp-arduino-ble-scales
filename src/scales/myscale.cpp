@@ -6,6 +6,9 @@ const NimBLEUUID myscale::DATA_SERVICE_UUID("0000FFB0-0000-1000-8000-00805F9B34F
 const NimBLEUUID myscale::DATA_CHARACTERISTIC_UUID("0000FFB2-0000-1000-8000-00805F9B34FB");
 const NimBLEUUID myscale::WRITE_CHARACTERISTIC_UUID("0000FFB1-0000-1000-8000-00805F9B34FB");
 
+const NimBLEUUID myscale::LEGACY_DATA_SERVICE_UUID("0000FFE0-0000-1000-8000-00805F9B34FB");
+const NimBLEUUID myscale::LEGACY_DATA_CHARACTERISTIC_UUID("0000FFE1-0000-1000-8000-00805F9B34FB");
+
 myscale::myscale(const DiscoveredDevice& device) : RemoteScales(device) {}
 
 bool myscale::connect() {
@@ -56,7 +59,10 @@ bool myscale::tare() {
         0x00, 0x00, 0xD2, 0xD2
     };
 
-    auto writeChar = service->getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+    NimBLERemoteCharacteristic* writeChar = writeCharacteristic;
+    if (!writeChar && service) {
+        writeChar = service->getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+    }
     if (!writeChar) {
         log("Write characteristic not found.\n");
         return false;
@@ -74,15 +80,22 @@ bool myscale::tare() {
 bool myscale::performConnectionHandshake() {
     log("Performing handshake...\n");
     
+    // First attempt TI service 0xFFB0
     service = clientGetService(DATA_SERVICE_UUID);
-    if (!service) {
-        log("Service not found.\n");
-        return false;
+    if (service) {
+        dataCharacteristic = service->getCharacteristic(DATA_CHARACTERISTIC_UUID);
+        writeCharacteristic = service->getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+    } else {
+        // Fallback to legacy Rfstream service 0xFFE0
+        service = clientGetService(LEGACY_DATA_SERVICE_UUID);
+        if (service) {
+            dataCharacteristic = service->getCharacteristic(LEGACY_DATA_CHARACTERISTIC_UUID);
+            writeCharacteristic = dataCharacteristic;
+        }
     }
 
-    dataCharacteristic = service->getCharacteristic(DATA_CHARACTERISTIC_UUID);
-    if (!dataCharacteristic) {
-        log("Characteristic not found.\n");
+    if (!service || !dataCharacteristic) {
+        log("Service or characteristic not found.\n");
         return false;
     }
 

@@ -16,6 +16,7 @@ public:
 private:
     NimBLERemoteService* service = nullptr;
     NimBLERemoteCharacteristic* dataCharacteristic = nullptr;
+    NimBLERemoteCharacteristic* writeCharacteristic = nullptr;
     uint32_t lastHeartbeat = 0;
     bool markedForReconnection = false;
 
@@ -32,6 +33,9 @@ private:
     static const NimBLEUUID DATA_SERVICE_UUID;
     static const NimBLEUUID DATA_CHARACTERISTIC_UUID;
     static const NimBLEUUID WRITE_CHARACTERISTIC_UUID;
+
+    static const NimBLEUUID LEGACY_DATA_SERVICE_UUID;
+    static const NimBLEUUID LEGACY_DATA_CHARACTERISTIC_UUID;
 };
 
 
