@@ -29,6 +29,7 @@ This allows for easy extention of the library for more bluetooth enabled scales.
 * [Timemore Black Mirror Dot](https://e.tb.cn/h.RaauU1uixK6rBHE?tk=NKEx5psOlHb) - [Tested]
 * [Varia AKU /Mini](https://www.variabrewing.com/products/varia-aku-scale) - [Tested]
 * [WeighMyBrew](https://github.com/031devstudios/weighmybru2) - [Tested]
+* [Wilfa Svart Uni (WSS-2)](https://wilfa.com/products/svart-uni) - [Tested]
 * [Smart Kitchen Scale / MyScale (Model: KP2048B)](https://aliexpress.com/item/1005005916581185.html) - [Tested]
 * [EspressiScale](https://www.espressiscale.com)
   
